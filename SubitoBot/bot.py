@@ -50,8 +50,7 @@ async def check_sites(context: ContextTypes.DEFAULT_TYPE):
 async def get_products(context: ContextTypes.DEFAULT_TYPE):
     products_to_print = m.get_products_list()
     for p in products_to_print:
-        await update.message.reply_text(p.to_string())
-
+        await context.
 
 def main():
     application = telegram.ext.ApplicationBuilder().token("7030039868:AAGIchRX3qnUjLV157ETzdyFgTdhpiTQfKk").build()
