@@ -18,20 +18,42 @@ from Product import Product
 def check_url(url) -> bool:
     try:
         response = requests.options(url)
-        if response.ok:   # alternatively you can use response.status_code == 200
-            try:
-                if(driver.find_element(By.CLASS_NAME ,"ErrorLayout_message__1rngn")): 
-                    logging.info(f"Found the ErrorLayout_message in {url} URL is not correct")
-                    return False
-            except exceptions.NoSuchElementException:
-                logging.info(f"Cannot find the ErrorLayout_message in {url}, URL is correct")
-                return True
-        else:
+        if not(response.ok):
             logging.info("URL non existent")
             return False
+        try:
+            if(driver.find_element(By.CLASS_NAME ,"ErrorLayout_message__1rngn")): 
+                logging.info(f"Found the ErrorLayout_message in {url} URL is not correct")
+                return False
+        except exceptions.NoSuchElementException:
+                logging.info(f"Cannot find the ErrorLayout_message in {url}, URL is correct")
+                return True 
     except Exception as e:
         logging.exception(f"an error occurred: {e}.")
 
+
+def check_lastid(txt_file_name, url):
+    
+    if(os.path.isfile(txt_file_name)):
+        f = open(txt_file_name, "r")
+        most_recent_post_id = int(f.readline().replace("\n", ""))
+        f.close()
+        return most_recent_post_id
+
+    else:
+        return 0
+    
+def is_error_message(url, driver):
+    try: 
+        if(driver.find_element(By.CLASS_NAME ,"ErrorLayout_message__1rngn")): 
+                logging.info(f"Found the ErrorLayout_message in {url} URL is not correct")
+                return True
+    except Exception:
+        return False
+    
+
+
+    
 #FIX overlapping URLS
 #TODO refactor this function in three functions 
 def check_sites(urls) -> None:
@@ -41,58 +63,54 @@ def check_sites(urls) -> None:
     
     for url in urls: 
         products = []
-        most_recent_post_id = 0
         exit_flag = False
         txt_file_name = os.path.join(os.getcwd(), "lastcheckedproducts", str(url).replace("https://www.subito.it/annunci-italia/vendita/usato/?q=", "").replace("+", "").replace("\n", "") + "-last_checked.txt")
-        if(os.path.isfile(txt_file_name)):
-            f = open(txt_file_name, "r")
-            most_recent_post_id = int(f.readline().replace("\n", ""))
-            f.close()
+        most_recent_post_id = check_lastid(txt_file_name, url)
         
-        i = 2 # product page counter 
+
+        i = 2 # product page counter (starts at 2 because page 1 is the firstPage)
+
         original_url = url 
-        current_url = original_url 
+        current_url = url 
         try:
             while not exit_flag: # Keep checking pages until an error message is found
                 driver.get(current_url)
+
                 logging.info(f"Current URL : {current_url}") 
-
-
-                try:
-                    # Try to find the error message element
-                    error_message = driver.find_element(By.CLASS_NAME, "ErrorLayout_message__1rngn")
-                    if error_message:
-                        break # Exit the while loop if the error message is found
-                except exceptions.NoSuchElementException:
-                    # Error message not found, continue processing
-                    pass
-
+                
+                if is_error_message(url, driver):
+                    break
+                
                 for price, clickable in zip(driver.find_elements(By.CLASS_NAME, 'index-module_container__zrC59'), driver.find_elements(By.CLASS_NAME, 'SmallCard-module_link__hOkzY')):
                     product_price = price.text
                     if ("VENDUTO" not in product_price and len(product_price) > 0):
                         product_price = product_price.replace(" €", "")
                         product_link = str(clickable.get_attribute('href'))
+
                         driver2.get(product_link)
                         product_id = int(driver2.find_element(By.XPATH, '//*[@id="layout"]/main/div[3]/div[1]/div[1]/section/div[2]/div[1]/span').text.replace("ID: ", ""))
+                        
                         if(product_id == most_recent_post_id):
-                            exit_flag = True
+                            exit_flag = True # if this is TRUE it means that the product is already been checked, there are no new products
                             break
+                        
                         prodotto = Product(product_id, product_link, product_price) 
                         products.append(prodotto)
                         all_products.append(prodotto)
-                        f1 = open("prices.txt","a")
-                        f1.write(prodotto.to_string())
-                        f1.close()
+
+                        with open("prices.txt", "a") as f:
+                            f.write(prodotto.to_string())
+                            f.close()
+
                         results += 1
                 
                 current_url = original_url + "&o=" + str(i)
                 i += 1
 
-            if(exit_flag == True and len(products) > 0):
-                open(txt_file_name, 'w').close()
-                f = open(txt_file_name, "w")
-                f.write(str(products[0].get_id()) + "\n")
-                f.close()
+            if(exit_flag == False and len(products) > 0):
+                with open(txt_file_name, 'w') as f:
+                    f.write(str(products[0].get_id()) + "\n")
+                    f.close()
             
         except Exception as e:
             logging.exception(f"an error occurred: {e}")
@@ -104,27 +122,18 @@ def check_sites(urls) -> None:
     driver.quit()
     driver2.quit()
 
-def get_products_list():
+def get_products():
     return all_products
+
+
 #--------------------------------------#
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 chrome_options = Options()
 chrome_options.add_argument("--headless=new")
 service = Service(executable_path="chromedriver.exe")
-driver = webdriver.Chrome(service=service, options =chrome_options)
-driver2 = webdriver.Chrome(service=service, options =chrome_options)
-#read_prices_from_file()
+driver = webdriver.Chrome(service=service, options=chrome_options)
+driver2 = webdriver.Chrome(service=service, options=chrome_options)
+
 all_products = []
-
-
-'''driver.get("https://subito.it") 
-# accept cookie prompt 
-try:
-    cookie_button = driver.find_element(By.ID, "didomi-notice-agree-button")
-    cookie_button.click() 
-except Exception:
-    logging.info("Cannot find cookie button, The browser is probably running in headless mode")'''
-
-
 

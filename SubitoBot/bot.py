@@ -47,16 +47,13 @@ async def check_sites(context: ContextTypes.DEFAULT_TYPE):
         check_sites_thread = threading.Thread(target=check_sites_thread_fun)
         check_sites_thread.start()
         
-async def get_products(context: ContextTypes.DEFAULT_TYPE):
-    products_to_print = m.get_products_list()
-    for p in products_to_print:
-        await context.
+
 
 def main():
     application = telegram.ext.ApplicationBuilder().token("7030039868:AAGIchRX3qnUjLV157ETzdyFgTdhpiTQfKk").build()
     job_queue = application.job_queue
     job_queue.run_repeating(check_sites, interval=720, first=5)
-    job_queue.run_repeating(get_products, interval=70, first= 70)
+
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("addurl", addurl))
